@@ -56,19 +56,3 @@ npm run build    # -> web-ext-artifacts/reddit_remove_login_popup-<version>.zip
    matching `data_collection_permissions` in the manifest.
 
 Icons are rendered from `assets/icon.svg` with `npm run icons`.
-
-### Suggested listing
-
-- **Name:** Reddit Remove Login Popup
-- **Summary:** Browse Reddit without an account: removes the "log in to continue" popup, unlocks scrolling and keeps infinite scroll working.
-- **Category:** Privacy & Security, or Other
-- **Description:**
-  > When you're not logged in, Reddit sometimes blocks the page with a sign-up popup, freezes scrolling and stops loading posts after the first few.
-  >
-  > This add-on:
-  > - hides and removes Reddit's sign-up popup, and the blocking "get the app" screen on phones (other dialogs and menus are left alone),
-  > - unlocks scrolling,
-  > - restores infinite scroll on subreddit pages, using Reddit's own loading.
-  >
-  > Works in Firefox on desktop and Android. It runs only on reddit.com, collects no data, and makes no network requests of its own.
-  > Not affiliated with or endorsed by Reddit, Inc.
