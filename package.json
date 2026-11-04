@@ -1,0 +1,16 @@
+{
+  "name": "reddit-sign-up-blocker",
+  "version": "1.0.0",
+  "description": "Firefox extension that removes Reddit's logged-out sign-in wall",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  },
+  "private": true
+}
