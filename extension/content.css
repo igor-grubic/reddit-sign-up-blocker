@@ -1,0 +1,8 @@
+/* Hide Reddit's sign-up wall the instant it is parsed; content.js then removes it. */
+desktop-dynamic-upsell-modal,
+#desktop-dynamic-upsell-dialog,
+rpl-dialog-sheet#desktop-dynamic-upsell,
+shreddit-async-loader[bundlename*="desktop_dynamic_upsell"],
+faceplate-partial[src*="desktop-dynamic-upsell"] {
+  display: none !important;
+}
