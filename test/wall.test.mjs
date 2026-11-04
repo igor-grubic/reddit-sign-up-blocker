@@ -148,6 +148,45 @@ test('upsell sheet rendered on its own is removed too', async () => {
   } finally { await page.close(); }
 });
 
+// Mobile web wall, as captured from Firefox for Android: the modal holds a *blocking* bottom
+// sheet, whose visible copy is rendered into a sibling element with id = the sheet's dialog-id.
+const mobileWall = (name, { blocking = true } = {}) =>
+  `<configured-xpromo-modal data-xpromo-view-san="xpromo|view|page_fade${blocking ? '_blocking' : ''}">` +
+  `<rpl-bottom-sheet dialog-id="configured-xpromo-${name}" ${blocking ? 'blocking=""' : ''} queued=""></rpl-bottom-sheet>` +
+  `</configured-xpromo-modal>` +
+  `<div id="configured-xpromo-${name}" class="rpl-bottom-sheet configured-xpromo configured-xpromo-bottom-sheet">Get the app to keep using Reddit</div>`;
+
+test('mobile "get the app" blocking sheet: hidden, removed with its rendered copy, scroll unlocked', async () => {
+  const { page } = await openSubreddit();
+  try {
+    const sync = await page.evaluate((html) => {
+      const app = document.querySelector('shreddit-app') || document.body;
+      app.insertAdjacentHTML('beforeend', html);
+      document.body.classList.add('rpl-scroll-lock');
+      return ['configured-xpromo-modal', '#configured-xpromo-test_blocking']
+        .map((s) => getComputedStyle(document.querySelector(s)).display);
+    }, mobileWall('test_blocking'));
+    assert.deepEqual(sync, ['none', 'none'], 'CSS should hide the modal and its rendered sheet immediately');
+    await poll(() => page.evaluate(() =>
+      !document.querySelector('configured-xpromo-modal, #configured-xpromo-test_blocking') &&
+      !document.body.classList.contains('rpl-scroll-lock')), { message: 'mobile blocking sheet not removed' });
+  } finally { await page.close(); }
+});
+
+test('mobile non-blocking app prompt is left alone', async () => {
+  const { page } = await openSubreddit();
+  try {
+    await page.evaluate((html) => (document.querySelector('shreddit-app') || document.body).insertAdjacentHTML('beforeend', html),
+      mobileWall('test_banner', { blocking: false }));
+    await page.waitForTimeout(1500);
+    const s = await page.evaluate(() => ({
+      modal: !!document.querySelector('configured-xpromo-modal'),
+      rendered: getComputedStyle(document.querySelector('#configured-xpromo-test_banner')).display !== 'none',
+    }));
+    assert.deepEqual(s, { modal: true, rendered: true });
+  } finally { await page.close(); }
+});
+
 test('no wall: other dialogs, scroll locks and feeds are left alone', async () => {
   const { page, feedRequests } = await openSubreddit();
   try {

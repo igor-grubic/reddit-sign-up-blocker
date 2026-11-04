@@ -21,6 +21,11 @@
     'faceplate-partial[src*="desktop-dynamic-upsell"]',
   ].join(',');
 
+  // Mobile web: a *blocking* "get the app" bottom sheet. The <configured-xpromo-modal>
+  // holds the sheet definition; its visible copy is rendered into a sibling element whose
+  // id equals the sheet's dialog-id. Non-blocking app prompts are left alone.
+  const MOBILE_BLOCKING_SHEET = 'rpl-bottom-sheet[blocking][dialog-id^="configured-xpromo-"]';
+
   const SCROLL_LOCK_CLASS = 'rpl-scroll-lock';
   const LOAD_AFTER = ':scope > faceplate-partial[slot="load-after"]';
   // Keep re-unlocking for a while after removing the wall: Reddit may apply the lock
@@ -34,8 +39,13 @@
   const primedFeeds = new WeakSet();
 
   function removeWall() {
-    const nodes = document.querySelectorAll(WALL_SELECTORS);
-    if (!nodes.length) return false;
+    const nodes = new Set(document.querySelectorAll(WALL_SELECTORS));
+    for (const sheet of document.querySelectorAll(MOBILE_BLOCKING_SHEET)) {
+      nodes.add(sheet.closest('configured-xpromo-modal') || sheet);
+      const rendered = document.getElementById(sheet.getAttribute('dialog-id'));
+      if (rendered) nodes.add(rendered);
+    }
+    if (!nodes.size) return false;
     nodes.forEach((n) => n.remove());
     wallSeen = true;
     unlockUntil = Date.now() + UNLOCK_GRACE_MS;
