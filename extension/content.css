@@ -3,6 +3,9 @@ desktop-dynamic-upsell-modal,
 #desktop-dynamic-upsell-dialog,
 rpl-dialog-sheet#desktop-dynamic-upsell,
 shreddit-async-loader[bundlename*="desktop_dynamic_upsell"],
-faceplate-partial[src*="desktop-dynamic-upsell"] {
+faceplate-partial[src*="desktop-dynamic-upsell"],
+/* Mobile web: blocking "get the app" sheet, and its rendered copy (a sibling of the modal). */
+configured-xpromo-modal:has(rpl-bottom-sheet[blocking]),
+:has(> configured-xpromo-modal rpl-bottom-sheet[blocking]) > .configured-xpromo-bottom-sheet {
   display: none !important;
 }
