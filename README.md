@@ -1,6 +1,7 @@
 # Reddit Remove Login Popup (Firefox)
 
-Removes Reddit's logged-out sign-in wall: hides and deletes the upsell popup, lifts the
+Removes Reddit's logged-out sign-in wall on Firefox desktop and Firefox for Android: hides
+and deletes the upsell popup (desktop) or the blocking "get the app" sheet (mobile web), lifts the
 `rpl-scroll-lock` scroll lock, and restores infinite scroll on cut-down subreddit feeds by
 re-adding the missing `<faceplate-partial slot="load-after">` placeholder.
 
@@ -21,6 +22,22 @@ Tests run against live reddit.com. Reddit doesn't wall automated sessions, so th
 simulate the wall: they strip the load-after placeholder from the subreddit HTML (what a
 walled server sends) and insert the popup elements and scroll lock.
 
+## Test on an Android phone
+
+Automated tests can't trigger a real wall, so check releases on a real device.
+
+1. Phone: enable **Developer options** (tap *Build number* 7 times), then **USB debugging**,
+   or **Wireless debugging** (pair once with `adb pair <ip>:<pairing-port>`, then
+   `adb connect <ip>:<port>` each session; Mac and phone on the same Wi-Fi).
+2. Firefox for Android: **Settings → Remote debugging via USB** (also covers wireless adb).
+3. Run it (`adb devices` shows the device name):
+   ```sh
+   ANDROID_DEVICE=<device> npm run android     # FIREFOX_APK=org.mozilla.fenix for Nightly
+   ```
+   Firefox restarts with the extension in a fresh, logged-out profile and reloads it on file changes.
+4. Browse logged out for a while. The mobile wall is time-based: it shows after ~30 s on a page
+   for returning visitors. To inspect the phone's tabs, use desktop Firefox → `about:debugging`.
+
 ## Publish to addons.mozilla.org
 
 ```sh
@@ -34,7 +51,8 @@ npm run build    # -> web-ext-artifacts/reddit_remove_login_popup-<version>.zip
 2. Sign in at https://addons.mozilla.org/developers/ and choose **Submit a New Add-on**
    (later: **Upload New Version**). Pick *On this site* (listed, reviewed) or *On your own* (unlisted, signed only).
 3. Upload the zip. No source-code submission is needed: the code isn't minified or bundled.
-4. Fill in the listing (suggested text below). The data-collection question is "none",
+4. Under compatibility, tick both **Firefox** and **Firefox for Android**.
+5. Fill in the listing (suggested text below). The data-collection question is "none",
    matching `data_collection_permissions` in the manifest.
 
 Icons are rendered from `assets/icon.svg` with `npm run icons`.
@@ -48,9 +66,9 @@ Icons are rendered from `assets/icon.svg` with `npm run icons`.
   > When you're not logged in, Reddit sometimes blocks the page with a sign-up popup, freezes scrolling and stops loading posts after the first few.
   >
   > This add-on:
-  > - hides and removes Reddit's sign-up popup (other dialogs are left alone),
+  > - hides and removes Reddit's sign-up popup, and the blocking "get the app" screen on phones (other dialogs and menus are left alone),
   > - unlocks scrolling,
   > - restores infinite scroll on subreddit pages, using Reddit's own loading.
   >
-  > It runs only on reddit.com, collects no data, and makes no network requests of its own.
+  > Works in Firefox on desktop and Android. It runs only on reddit.com, collects no data, and makes no network requests of its own.
   > Not affiliated with or endorsed by Reddit, Inc.

@@ -6,7 +6,8 @@
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
     "icons": "node scripts/render-icons.mjs",
     "lint": "web-ext lint --source-dir extension",
-    "build": "web-ext build --source-dir extension --overwrite-dest"
+    "build": "web-ext build --source-dir extension --overwrite-dest",
+    "android": "web-ext run --target=firefox-android --android-device=$ANDROID_DEVICE --firefox-apk=${FIREFOX_APK:-org.mozilla.firefox} --source-dir extension"
   },
   "keywords": [],
   "author": "",
