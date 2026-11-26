@@ -10,7 +10,6 @@ import assert from 'node:assert/strict';
 import { launchWithExtension } from './firefox-with-extension.mjs';
 
 const SUB = process.env.SUB || 'linux';
-const SUB_URL = `https://www.reddit.com/r/${SUB}/`;
 // Structure as seen in a real walled browser: the sheet sits inside the modal.
 const SHEET_HTML =
   '<rpl-dialog-sheet id="desktop-dynamic-upsell" open>Join the most real place on the internet</rpl-dialog-sheet>';
@@ -36,11 +35,11 @@ async function poll(fn, { timeout = 10000, interval = 250, message } = {}) {
  * Open the subreddit with the feed cut down like a walled session.
  * wallInHtml: also put the popup + scroll lock into the server HTML.
  */
-async function openSubreddit({ stripLoadMore = true, wallInHtml = false } = {}) {
+async function openSubreddit({ stripLoadMore = true, wallInHtml = false, path = `/r/${SUB}/` } = {}) {
   const page = await browser.context.newPage();
   const feedRequests = [];
-  page.on('request', (r) => { if (r.url().includes('/svc/shreddit/community-more-posts/')) feedRequests.push(r.url()); });
-  await page.route((url) => url.origin === 'https://www.reddit.com' && url.pathname === `/r/${SUB}/`, async (route) => {
+  page.on('request', (r) => { if (/\/svc\/shreddit\/(community-more-posts|feeds)\//.test(r.url()) && !r.url().includes('/reload')) feedRequests.push(r.url()); });
+  await page.route((url) => url.origin === 'https://www.reddit.com' && url.pathname === path, async (route) => {
     if (route.request().resourceType() !== 'document') return route.continue();
     const res = await route.fetch();
     let html = await res.text();
@@ -56,7 +55,7 @@ async function openSubreddit({ stripLoadMore = true, wallInHtml = false } = {}) 
     }
     await route.fulfill({ response: res, body: html });
   });
-  await page.goto(SUB_URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(`https://www.reddit.com${path}`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('shreddit-feed article[data-post-id]');
   return { page, feedRequests };
 }
@@ -110,6 +109,34 @@ test('walled page: popup removed, scroll unlocked, infinite scroll restored', as
     console.log(`  posts seen: ${start.posts} -> ${res.seen}; feed requests: ${feedRequests.length}; height ${h0} -> ${res.h}`);
   } finally { await page.close(); }
 });
+
+// The front page, r/popular and /news page through /svc/shreddit/feeds/<name>-feed, not community-more-posts.
+for (const path of ['/', '/r/popular/', '/news/']) {
+  test(`walled aggregate feed ${path}: infinite scroll restored via the feed's own endpoint`, async () => {
+    const { page, feedRequests } = await openSubreddit({ wallInHtml: true, path });
+    try {
+      await poll(async () => { const s = await wallState(page); return !s.wall && !s.locked && s; }, { message: 'wall not removed / scroll still locked' });
+      const start = await poll(async () => { const s = await feedState(page); return s.loadAfter && s; }, { message: 'extension should have added the load-after placeholder' });
+      await page.evaluate(() => {
+        window.__seen = new Set();
+        const grab = () => document.querySelectorAll('shreddit-feed article[data-post-id]').forEach((a) => window.__seen.add(a.dataset.postId));
+        grab(); new MutationObserver(grab).observe(document.querySelector('shreddit-feed'), { childList: true, subtree: true });
+      });
+      await poll(async () => {
+        await page.mouse.wheel(0, 4000);
+        return feedRequests.length >= 2;
+      }, { timeout: 60000, interval: 400, message: `infinite scroll stalled after ${feedRequests.length} feed requests` });
+      await page.waitForTimeout(2000);
+
+      assert.ok(feedRequests.every((u) => new URL(u).pathname.startsWith('/svc/shreddit/feeds/')), `wrong feed endpoint: ${feedRequests}`);
+      const cursors = feedRequests.map((u) => new URL(u).searchParams.get('after'));
+      assert.equal(new Set(cursors).size, cursors.length, `feed cursors repeat: ${cursors}`);
+      const seen = await page.evaluate(() => window.__seen.size);
+      assert.ok(seen > start.posts + 20, `expected 20+ new posts, saw ${seen} (started with ${start.posts})`);
+      console.log(`  ${path} posts seen: ${start.posts} -> ${seen}; feed requests: ${feedRequests.length}`);
+    } finally { await page.close(); }
+  });
+}
 
 test('popup inserted later: hidden by CSS immediately, then removed and scroll unlocked', async () => {
   const { page } = await openSubreddit();
