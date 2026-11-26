@@ -62,15 +62,42 @@
     }
   }
 
-  // /r/<sub>/[<sort>/] -> { sub, sort }; null for non-listing pages (posts, wiki, ...).
+  // /r/<sub>/[<sort>/] -> { sub, sort }; null for non-listing pages (posts, wiki, ...)
+  // and for r/popular and r/all, which are aggregate feeds, not communities.
   function subredditListing() {
     const m = location.pathname.match(/^\/r\/([^/]+)\/?(?:(best|hot|new|top|rising|controversial)\/?)?$/i);
-    return m ? { sub: m[1], sort: (m[2] || 'best').toLowerCase() } : null;
+    if (!m || /^(popular|all)$/i.test(m[1])) return null;
+    return { sub: m[1], sort: (m[2] || 'best').toLowerCase() };
+  }
+
+  // Aggregate feeds (front page, r/popular, r/all, news, ...) page through
+  // /svc/shreddit/feeds/<name>-feed; the feed element names its endpoint in reload-url.
+  function aggregateFeedUrl(feed, after, length) {
+    const reload = feed.getAttribute('reload-url');
+    if (!reload || !reload.startsWith('/svc/shreddit/feeds/')) return null;
+    const url = new URL(reload, location.origin);
+    url.searchParams.set('after', after);
+    url.searchParams.set('cursor', after);
+    url.searchParams.set('distance', String(length));
+    const sessionId = feed.getAttribute('navigation-session-id');
+    if (sessionId) url.searchParams.set('navigationSessionId', sessionId);
+    return url.pathname + url.search;
+  }
+
+  function communityFeedUrl(feed, listing, after, length) {
+    const params = new URLSearchParams({
+      after,
+      t: (new URLSearchParams(location.search).get('t') || 'DAY').toUpperCase(),
+      name: listing.sub,
+      feedLength: String(length),
+    });
+    const sessionId = feed.getAttribute('navigation-session-id');
+    if (sessionId) params.set('navigationSessionId', sessionId);
+    return `/svc/shreddit/community-more-posts/${listing.sort}/?${params}`;
   }
 
   function restoreLoadMore() {
     const listing = subredditListing();
-    if (!listing) return;
     const feed = document.querySelector('shreddit-feed');
     if (!feed || primedFeeds.has(feed) || feed.querySelector(LOAD_AFTER)) return;
 
@@ -84,25 +111,21 @@
     }
     if (!lastId) return;
     const after = btoa(lastId);
-
-    const params = new URLSearchParams({
-      after,
-      t: (new URLSearchParams(location.search).get('t') || 'DAY').toUpperCase(),
-      name: listing.sub,
-      feedLength: String(items.length),
-    });
-    const sessionId = feed.getAttribute('navigation-session-id');
-    if (sessionId) params.set('navigationSessionId', sessionId);
+    const src = aggregateFeedUrl(feed, after, items.length) ||
+      (listing && communityFeedUrl(feed, listing, after, items.length));
+    if (!src) return;
 
     const partial = document.createElement('faceplate-partial');
     partial.id = 'partial-more-posts-' + after.replace(/=+$/, '');
     partial.setAttribute('slot', 'load-after');
     partial.setAttribute('loading', 'programmatic');
     partial.setAttribute('method', 'GET');
-    partial.setAttribute('src', `/svc/shreddit/community-more-posts/${listing.sort}/?${params}`);
+    partial.setAttribute('src', src);
     // Reddit's own loading spinner, as in its server-rendered placeholder.
     const spinner = document.createElement('shreddit-feed-page-loading');
-    spinner.setAttribute('page-type', 'community');
+    // 'community' for subreddits; for aggregate feeds the endpoint name, e.g. popular-feed -> 'popular'.
+    const feedName = src.match(/^\/svc\/shreddit\/feeds\/([\w-]+)-feed\b/);
+    spinner.setAttribute('page-type', feedName ? feedName[1] : 'community');
     spinner.setAttribute('length-of-feed', String(items.length));
     partial.appendChild(spinner);
     feed.appendChild(partial);
